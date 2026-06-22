@@ -1,0 +1,404 @@
+/* Reset basic styles and set a nice background */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f7f6;
+    color: #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    margin: 0;
+}
+
+/* Style the main title */
+h1 {
+    color: #2c3e50;
+    margin-bottom: 30px;
+    font-size: 28px;
+}
+
+/* Main container with flexbox for form and chart side-by-side */
+.main-container {
+    display: flex;
+    gap: 30px;
+    width: 100%;
+    max-width: 1200px;
+    align-items: flex-start;
+}
+
+/* Form styling */
+form {
+    flex: 1;
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    min-width: 300px;
+    box-sizing: border-box;
+}
+
+/* Form section spacing */
+form div {
+    margin-bottom: 16px;
+}
+
+/* Style labels and spacing */
+label {
+    font-weight: 600;
+    font-size: 14px;
+    color: #4a5568;
+    display: block;
+    margin-bottom: 6px;
+}
+
+/* Style the text and number inputs */
+input[type="text"],
+input[type="email"],
+input[type="number"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 16px;
+    box-sizing: border-box;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus {
+    outline: none;
+    border-color: #3182ce;
+    box-shadow: 0 0 0 3px rgba(49, 130, 206, 0.1);
+}
+
+/* Style the submit button */
+button[type="submit"] {
+    width: 100%;
+    background-color: #3182ce;
+    color: white;
+    border: none;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-top: 10px;
+}
+
+button[type="stop"]{
+    width: 100%;
+    background-color: #f56565;
+    color: white;
+    border: none;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    margin-top: 10px;
+}
+
+button[type="submit"]:hover {
+    background-color: #2b6cb0;
+}
+
+button[type="submit"]:active {
+    background-color: #1e4e8a;
+}
+
+/* Checkbox styling */
+input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    margin-right: 8px;
+    accent-color: #3182ce;
+}
+
+input[type="checkbox"]:hover {
+    opacity: 0.8;
+}
+
+input[type="checkbox"]:focus {
+    outline: 2px solid #3182ce;
+    outline-offset: 2px;
+}
+
+label:has(input[type="checkbox"]) {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+    font-weight: 500;
+    color: #2d3748;
+    margin-bottom: 12px;
+}
+
+label:has(input[type="checkbox"]):hover {
+    color: #1a365d;
+}
+
+.export-btn {
+    width: 100%;
+    background-color: #48bb78;
+    color: white;
+    border: none;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: background-color 0.2s;
+}
+
+.export-btn:hover {
+    background-color: #38a169;
+}
+
+.export-btn:active {
+    background-color: #276749;
+}
+
+/* For older browsers that don't support :has() */
+input[type="checkbox"] + label {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    margin-left: 8px;
+}
+
+/* List container styling */
+.list-container {
+    background: #f9fafb;
+    padding: 12px;
+    border-radius: 6px;
+    border: 1px solid #e5e7eb;
+}
+
+.input-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.input-group input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 16px;
+    box-sizing: border-box;
+}
+
+.input-group button {
+    padding: 10px 20px;
+    background-color: #48bb78;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 0;
+    flex-shrink: 0;
+    transition: background-color 0.2s;
+}
+
+.input-group button:hover {
+    background-color: #38a169;
+}
+
+.item-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.item-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    margin-bottom: 8px;
+}
+
+.item-list li:last-child {
+    margin-bottom: 0;
+}
+
+.item-list span {
+    font-weight: 500;
+    color: #2d3748;
+}
+
+.remove-btn {
+    padding: 6px 12px;
+    background-color: #f56565 !important;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin: 0 !important;
+    width: auto;
+    transition: background-color 0.2s;
+}
+
+.remove-btn:hover {
+    background-color: #e53e3e !important;
+}
+
+/* Chart container styling */
+.chart-container {
+    flex: 1;
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    min-width: 300px;
+    box-sizing: border-box;
+}
+
+.chart-container h2 {
+    margin-top: 0;
+    color: #2c3e50;
+    font-size: 18px;
+    margin-bottom: 20px;
+}
+
+.chart-container canvas {
+    max-width: 100%;
+}
+
+/* Divider line */
+hr {
+    border: 0;
+    height: 1px;
+    background: #e2e8f0;
+    width: 100%;
+    max-width: 1230px;
+    margin: 30px 0;
+}
+
+/* Results section styling */
+.results-card {
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    width: 100%;
+    max-width: 1200px;
+    margin-bottom: 20px;
+    box-sizing: border-box;
+    border-left: 4px solid #48bb78;
+    background: #f0fdf4;
+}
+
+.results-card h2 {
+    margin-top: 0;
+    color: #2c3e50;
+    font-size: 20px;
+    margin-bottom: 16px;
+}
+
+.results-card ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.results-card li {
+    padding: 10px 0;
+    border-bottom: 1px solid #dcfce7;
+    font-size: 15px;
+}
+
+.results-card li:last-child {
+    border-bottom: none;
+}
+
+.results-card strong {
+    color: #15803d;
+}
+
+/* Responsive design */
+@media (max-width: 900px) {
+    .main-container {
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    form, .chart-container {
+        width: 100%;
+        max-width: 100%;
+        flex: none;
+    }
+    
+    .input-group {
+        flex-direction: column;
+    }
+    
+    .input-group button {
+        width: 100%;
+    }
+    
+    h1 {
+        font-size: 24px;
+        margin-bottom: 20px;
+    }
+    
+    body {
+        padding: 20px 10px;
+    }
+}
+
+.connection-status {
+    margin: 15px 0 20px 0;
+    padding: 12px 15px;
+    border-radius: 6px;
+    background-color: #f0f0f0;
+    display: flex;
+    align-items: center;
+    font-weight: 500;
+    gap: 10px;
+    border: 1px solid #e0e0e0;
+}
+
+.status-text {
+    color: #333;
+    font-size: 14px;
+}
+
+.connection-dot {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: pulse 2s infinite;
+}
+
+.connection-dot.connected {
+    background-color: #48bb78;
+    box-shadow: 0 0 10px #48bb78;
+}
+
+.connection-dot.disconnected {
+    background-color: #f56565;
+    box-shadow: 0 0 10px #f56565;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.7;
+    }
+}

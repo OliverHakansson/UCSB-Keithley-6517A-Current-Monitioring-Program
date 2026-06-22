@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Current Monitoring Form</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <h1>Current Monitoring for Microfluidic Channels</h1>
+    
+    <div class="main-container">
+        <form action="/" method="POST" id="experimentForm">
+            <div>
+                <label for="name">Name:</label>
+                <input type="text" id="name" name="name" placeholder="Enter your name" required>
+            </div>
+            <br>
+            <div>
+                <label for="email">Email Address:</label>
+                <input type="text" id="email" name="email" placeholder="Enter your email" required>
+            </div>
+            <br>
+            <div>
+                <label for="experiment_name">Experiment Name:</label>
+                <input type="text" id="experiment_name" name="experiment_name" placeholder="Enter experiment name" required>
+            </div>
+            <br>
+            <div>
+            <input type="checkbox" id="voltageSweepCheckbox" name="voltageSweepCheckbox">     Sweep between the voltages</label>
+            </div>
+            <br>
+            <div>
+                <label>Voltages (V):</label>
+                <div class="list-container">
+                    <div class="input-group">
+                        <input type="number" id="voltageInput" placeholder="Enter voltage" step="0.1">
+                        <button type="button" onclick="addVoltage()">Add</button>
+                    </div>
+                    <ul id="voltageList" class="item-list"></ul>
+                </div>
+            </div>
+            <br>
+            <div>
+                <label>Timings (seconds):</label>
+                <div class="list-container">
+                    <div class="input-group">
+                        <input type="number" id="timingInput" placeholder="Enter timing" step="0.1">
+                        <button type="button" onclick="addTiming()">Add</button>
+                    </div>
+                    <ul id="timingList" class="item-list"></ul>
+                </div>
+            </div>
+            <br>
+            <div>
+                <label for="experiment_loops">Experiment Loops:</label>
+                <input type="number" id="experiment_loops" name="experiment_loops" value="1" min="1">
+            </div>
+            <label>
+            <input type="checkbox" id="emailCheckBox" name="emailCheckBox">     Email the experimental data and graph?</label>
+            <br>
+            <button type="submit">Start Experiment</button>
+            <button type="stop"> Stop Experiment</button>
+            <h6> *Data will be saved but the experiment has to be restarted</h6>
+        </form>
+
+        <div class="chart-container">
+            <h2>Experimental Data</h2>
+            <div id="connectionStatus" class="connection-status"></div>
+            <canvas id="previewChart"></canvas>
+            <button type="button" onclick="exportChartImage()" class="export-btn">Export Chart as PNG</button>
+        </div>
+
+    </div>
+
+    {% if data %}
+        <hr>
+        <div class="results-card">
+            <h2>Submitted Data:</h2>
+            <ul>
+                <li><strong>Name:</strong> {{ data.name }}</li>
+                <li><strong>Email:</strong> {{ data.email }}</li>
+                <li><strong>Experiment:</strong> {{ data.experiment_name }}</li>
+                <li><strong>Voltages:</strong> {{ data.voltages|join(', ') }} V</li>
+                <li><strong>Timings:</strong> {{ data.timings|join(', ') }} s</li>
+                <li><strong>Experiment Loops:</strong> {{ data.experiment_loops }}</li>
+            </ul>
+        </div>
+    {% endif %}
+
+    <script>
+    let voltages = [];
+    let timings = [];
+    let chart = null;
+    let realData = [];
+    let keithleyConnected = false;
+
+    function checkKeithleyConnection() {
+        fetch('/check-keithley')
+            .then(response => response.json())
+            .then(data => {
+                keithleyConnected = data.connected;
+                updateConnectionStatus();
+                updateChart();
+            })
+            .catch(error => {
+                console.error('Error checking Keithley connection:', error);
+                keithleyConnected = false;
+                updateConnectionStatus();
+            });
+    }
+
+
+
+    function updateConnectionStatus() {
+        const statusDiv = document.getElementById('connectionStatus');
+        const dotClass = keithleyConnected ? 'connected' : 'disconnected';
+        const statusText = keithleyConnected ? 'Keithley Connected' : 'Keithley Not Connected - Using Theoretical Data';
+        
+        statusDiv.innerHTML = `<span class="connection-dot ${dotClass}"></span><span class="status-text">${statusText}</span>`;
+        
+        if (keithleyConnected) {
+            const dataInputSection = document.getElementById('dataInputSection');
+            if (dataInputSection) {
+                dataInputSection.style.display = 'none';
+            }
+        }
+}
+
+    function addVoltage() {
+        const input = document.getElementById('voltageInput');
+        const value = input.value.trim();
+        
+        if (value) {
+            voltages.push(value);
+            renderVoltageList();
+            updateChart();
+            input.value = '';
+            input.focus();
+        }
+    }
+
+    function removeVoltage(index) {
+        voltages.splice(index, 1);
+        renderVoltageList();
+        updateChart();
+    }
+
+    function renderVoltageList() {
+        const list = document.getElementById('voltageList');
+        list.innerHTML = '';
+        voltages.forEach((voltage, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>${voltage} V</span>
+                <input type="hidden" name="voltages[]" value="${voltage}">
+                <button type="button" class="remove-btn" onclick="removeVoltage(${index})">Remove</button>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    function addTiming() {
+        const input = document.getElementById('timingInput');
+        const value = input.value.trim();
+        
+        if (value) {
+            timings.push(value);
+            renderTimingList();
+            updateChart();
+            input.value = '';
+            input.focus();
+        }
+    }
+
+    function removeTiming(index) {
+        timings.splice(index, 1);
+        renderTimingList();
+        updateChart();
+    }
+
+    function renderTimingList() {
+        const list = document.getElementById('timingList');
+        list.innerHTML = '';
+        timings.forEach((timing, index) => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+                <span>${timing} s</span>
+                <input type="hidden" name="timings[]" value="${timing}">
+                <button type="button" class="remove-btn" onclick="removeTiming(${index})">Remove</button>
+            `;
+            list.appendChild(li);
+        });
+    }
+
+    function exportChartImage() {
+        const canvas = document.getElementById('previewChart');
+        const image = canvas.toDataURL('image/png');
+        
+        // Save to server
+        fetch('/save-chart', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                image_data: image
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log("Chart saved to server!");
+                // Also download locally
+                const link = document.createElement('a');
+                link.href = image;
+                link.download = `experiment_graph_${new Date().toISOString().slice(0,10)}.png`;
+                link.click();
+            }
+        });
+    }
+
+    function updateChart() {
+        const ctx = document.getElementById('previewChart').getContext('2d');
+        
+        if (chart) {
+            chart.destroy();
+        }
+
+        let labels = [];
+        let dataPoints = [];
+
+        if (keithleyConnected) {
+            // Real data from Keithley
+            realData.forEach((point) => {
+                labels.push(`${point.time.toFixed(2)}s`);
+                dataPoints.push(point.conductivity);
+            });
+        } else {
+            // Theoretical/Mock data
+            const experimentLoops = parseInt(document.getElementById('experiment_loops').value) || 1;
+
+            for (let v = 0; v < voltages.length; v++) {
+                for (let tLoop = 0; tLoop < experimentLoops; tLoop++) {
+                    for (let t = 0; t < timings.length; t++) {
+                        labels.push(`V${voltages[v]}@${timings[t]}s`);
+                        dataPoints.push(Math.random() * 100);
+                    }
+                }
+            }
+        }
+
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels.length > 0 ? labels : ['No data'],
+                datasets: [{
+                    label: keithleyConnected ? 'Conductivity (µS/cm)' : 'Current (µA) - Theoretical',
+                    data: dataPoints.length > 0 ? dataPoints : [0],
+                    borderColor: keithleyConnected ? '#48bb78' : '#3182ce',
+                    backgroundColor: keithleyConnected ? 'rgba(72, 187, 120, 0.1)' : 'rgba(49, 130, 206, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: keithleyConnected ? '#48bb78' : '#3182ce',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        labels: {
+                            font: { size: 12 }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    },
+                    x: {
+                        ticks: {
+                            color: '#333'
+                        }
+                    }
+                }
+            },
+            plugins: [{
+                id: 'customCanvasBackgroundColor',
+                beforeDraw(chart, args, options) {
+                    const { ctx } = chart;
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'destination-over';
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, chart.width, chart.height);
+                    ctx.restore();
+                }
+            }]
+        });
+    }
+
+    // Allow Enter key to add items
+    document.getElementById('voltageInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addVoltage();
+        }
+    });
+
+    document.getElementById('timingInput').addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            addTiming();
+        }
+    });
+
+    // Update chart when loop values change
+    document.getElementById('experiment_loops').addEventListener('change', updateChart);
+
+    // Initialize chart on page load
+    window.addEventListener('load', function() {
+        updateChart();
+        checkKeithleyConnection();
+    });
+
+    document.getElementById('experimentForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Save chart image first if email is checked
+        const emailCheckBox = document.getElementById('emailCheckBox').checked;
+        
+        if (emailCheckBox) {
+            const canvas = document.getElementById('previewChart');
+            const image = canvas.toDataURL('image/png');
+            
+            // Save chart to server
+            fetch('/save-chart', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    image_data: image
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log("Chart saved! Submitting form...");
+                    // Submit form after chart is saved
+                    submitForm();
+                }
+            });
+        } else {
+            // Submit form without saving chart
+            submitForm();
+        }
+    });
+
+    function submitForm() {
+        fetch('/', {
+            method: 'POST',
+            body: new FormData(document.getElementById('experimentForm'))
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log('Experiment started:', data.message);
+                realData = [];
+                checkKeithleyConnection();
+            }
+        });
+    }
+</script>
+
+</body>
+</html>
