@@ -7,7 +7,15 @@ import pyvisa
 import threading
 import time
 
+#TODO
+#FIX saving of the data to a txt or csv
+#ADD full experiment loops
+
 app = Flask(__name__)
+currentVoltages = []
+currentTimings = []
+currentRepetitions = 1
+sweeps = False
 
 # Store experiment data in memory (in production, use a database)
 experiment_data = {
@@ -15,9 +23,13 @@ experiment_data = {
     "data_points": []
 }
 
+
 @app.route("/", methods=["GET", "POST"])
 def home():
     form_data = None
+    global currentVoltages
+    global currentTimings
+    global sweeps
 
     if request.method == "POST":
         name = request.form.get("name")
@@ -28,11 +40,11 @@ def home():
         experiment_loops = request.form.get("experiment_loops", "1")
         voltage_sweep = request.form.get("voltageSweepCheckbox") is not None
         email_data = request.form.get("emailCheckBox") is not None
-        
+
         # Filter out empty values
         voltages = [v for v in voltages if v.strip()]  # ADD THIS LINE
         durations = [d for d in durations if d.strip()]
-        
+
         print("\n--- FORM DATA RECEIVED ---")
         print(f"Name:                    {name}")
         print(f"Email:                   {email}")
@@ -43,8 +55,12 @@ def home():
         print(f"Voltage Sweep:           {voltage_sweep}")
         print(f"Email Results:           {email_data}")
         print("--------------------------\n")
-        
-        
+
+        currentVoltages = voltages
+        currentTimings = durations
+        sweeps = voltage_sweep
+        currentRepetitions = int(experiment_loops)
+
         if email_data:
             html_report = f"""
             <html>
@@ -62,9 +78,9 @@ def home():
               </body>
             </html>
             """
-            
+
             txt_content = f"""EXPERIMENT REPORT
-{'='*80}
+{'=' * 80}
 
 Experimenter:        {name}
 Email:               {email}
@@ -76,23 +92,23 @@ Experiment Loops:    {experiment_loops}
 Voltage Sweep:       {'Yes' if voltage_sweep else 'No'}
 Total Data Points:   {len(experiment_data['data_points'])}
 
-{'='*80}
+{'=' * 80}
 DATA POINTS (CSV Format)
-{'='*80}
+{'=' * 80}
 
 Time (s),Conductivity (µS/cm)
 """
 
             for point in experiment_data['data_points']:
                 txt_content += f"{point['time']:.2f},{point['conductivity']:.2f}\n"
-            
+
             send_experiment_email(
                 recipient_email=email,
                 html_body=html_report,
                 txt_content=txt_content,
                 png_attachment_path="experiment_graph.png"
             )
-        
+
         return jsonify({
             "success": True,
             "message": "Experiment started successfully",
@@ -102,8 +118,9 @@ Time (s),Conductivity (µS/cm)
             "email_data": email_data,
             "data_points": experiment_data["data_points"]
         })
-        
+
     return render_template("index.html", data=form_data)
+
 
 @app.route("/get-conductivity-data", methods=["GET"])
 def get_conductivity_data():
@@ -114,12 +131,13 @@ def get_conductivity_data():
         "total_points": len(experiment_data["data_points"])
     })
 
+
 @app.route("/reset-experiment", methods=["POST"])
 def reset_experiment():
     """Reset the experiment data"""
     experiment_data["start_time"] = None
     experiment_data["data_points"] = []
-    
+
     return jsonify({
         "success": True,
         "message": "Experiment data reset"
@@ -132,63 +150,66 @@ keithley_device = None
 reconnect_thread = None
 stop_reconnect = False
 
+
 def connect_to_keithley():
     """Connect to Keithley 6517A"""
     global keithley_connected, keithley_device
-    
+
     try:
         # Create a PyVISA resource manager
         rm = pyvisa.ResourceManager()
-        
+
         # List available instruments
         resources = rm.list_resources()
         print(f"Available instruments: {resources}")
-        
+
         if not resources:
             print("No instruments found!")
             keithley_connected = False
             return False
-        
+
         # Connect directly to GPIB1::27::INSTR
         keithley_address = "GPIB1::27::INSTR"
-        
+
         if keithley_address not in resources:
             print(f"Keithley not found at {keithley_address}")
             print(f"Available: {resources}")
             keithley_connected = False
             return False
-        
+
         # Connect to the device
         keithley_device = rm.open_resource(keithley_address)
         keithley_device.timeout = 10000
         keithley_device.clear()
-        
+
         # Identify the device
         idn = keithley_device.query("*IDN?")
         keithley_device.write("*RST")
         keithley_device.write("*CLS")
+        # Electrometer-specific setup
+        keithley_device.write("SYST:ZCH ON")
+        keithley_device.write("SYST:ZCOR ON")
+        time.sleep(2)
+        keithley_device.write("SYST:ZCH OFF")
+
         keithley_device.write("SOUR:FUNC VOLT")
         keithley_device.write('SENS:FUNC "CURR"')
-        # Electrometer-specific setup
-        # keithley_device.write("SYST:ZCH ON")
-        # keithley_device.write("SYST:ZCOR ON")
-        # keithley_device.write("SYST:ZCH OFF")
 
         keithley_device.write("SENS:CURR:RANG:AUTO ON")
         keithley_device.write("SENS:CURR:NPLC 1")
-        
 
         print(f"Connected to: {idn}")
-        
+
         keithley_connected = True
         print("Keithley connected successfully!")
         return True
-        
+
     except Exception as e:
         print(f"Failed to connect to Keithley: {e}")
         keithley_connected = False
         keithley_device = None
         return False
+
 
 @app.route('/read_current')
 def read_current():
@@ -199,34 +220,50 @@ def read_current():
         "current": current
     })
 
+
 def read_keithley_current():
     global keithley_device
-    print("I did a thing please please \n \n \n \n see this happening")
+    global currentVoltages
+    global currentTimings
+    global currentRepetitions
 
     if not keithley_connected or keithley_connected is None:
         return None
-    try:
-        keithley_device.write("SOUR:VOLT 0")
-        keithley_device.write("OUTP ON")
-        keithley_device.write(f"SOUR:VOLT {voltages[0]}")
-        current = keithley_device.query("MEAS:CURR?")
-        currentOther = keithley_device.query("READ?")
-        print(current)
-        print(currentOther)
-        return float(current)
-    except Exception as e:
-        print(f"Error reading current from Keithley: {e}")
-        return None
+    if currentVoltages is not None and currentTimings is not None:
+        try:
+            current = 1
+            keithley_device.write("SOUR:VOLT 0")
+            keithley_device.write("OUTP ON")
+            experimentStartTime = time.time()
+            length = len(currentTimings) if (len(currentTimings) < len(currentVoltages)) else len(currentVoltages)
+            for i in range(currentRepetitions):
+                for i in range(length):
+                    cycleStartTime = time.time()
+                    while (cycleStartTime + float(currentTimings[i])) > time.time():
+                        keithley_device.write(f"SOUR:VOLT {float(currentVoltages[i])}")
+                        currentVal = keithley_device.query("MEAS:CURR?")
+                        writeToTXT(time.time() - experimentStartTime, currentVal.split(",")[0])
+            keithley_device.write("SOUR:VOLT 0")
+            keithley_device.write("OUTP OFF")
+            return float(current)
+        except Exception as e:
+            print(f"Error reading current from Keithley: {e}")
+            return None
+
+def writeToTXT(time, current):
+    with open("experiment_data.txt", "a") as data:
+        data.write(f"{time} , {current}")
 
 def reconnect_loop():
     """Continuously try to reconnect to Keithley every 5 seconds"""
     global keithley_connected, stop_reconnect
-    
+
     while not stop_reconnect:
         if not keithley_connected:
             print("Attempting to reconnect to Keithley...")
             connect_to_keithley()
         time.sleep(5)  # Try every 5 seconds
+
 
 def start_reconnect_thread():
     """Start the reconnect thread"""
@@ -235,6 +272,7 @@ def start_reconnect_thread():
     reconnect_thread = threading.Thread(target=reconnect_loop, daemon=True)
     reconnect_thread.start()
     print("Reconnect thread started")
+
 
 def stop_reconnect_thread():
     """Stop the reconnect thread"""
@@ -250,10 +288,11 @@ def check_keithley():
         "connected": keithley_connected
     })
 
+
 def disconnect_keithley():
     """Disconnect from Keithley 6517A"""
     global keithley_device, keithley_connected
-    
+
     if keithley_device is not None:
         try:
             keithley_device.close()
@@ -261,6 +300,7 @@ def disconnect_keithley():
             print("Keithley disconnected")
         except Exception as e:
             print(f"Error disconnecting Keithley: {e}")
+
 
 if __name__ == "__main__":
     connect_to_keithley()
