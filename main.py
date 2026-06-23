@@ -238,22 +238,41 @@ def connect_to_keithley():
         resources = rm.list_resources()
         print(f"Available instruments: {resources}")
         
-        # Connect to Keithley 6517A (adjust the address if needed)
-        keithley_device = rm.open_resource('GPIB0::27::INSTR')
+        if not resources:
+            print("No instruments found!")
+            keithley_connected = False
+            return False
         
-        # Set timeout
-        keithley_device.timeout = 5000
+        # Find Keithley in the list
+        keithley_address = None
+        for resource in resources:
+            if "6517" in resource or "Keithley" in resource:
+                keithley_address = resource
+                print(f"Found Keithley at: {keithley_address}")
+                break
+        
+        if not keithley_address:
+            print("Keithley 6517A not found in available instruments")
+            print(f"Available: {resources}")
+            keithley_connected = False
+            return False
+        
+        # Connect to the device
+        keithley_device = rm.open_resource(keithley_address)
+        keithley_device.timeout = 10000
         
         # Identify the device
         idn = keithley_device.query("*IDN?")
         print(f"Connected to: {idn}")
         
         keithley_connected = True
-        print("Keithley 6517A connected successfully!")
+        print("Keithley connected successfully!")
         return True
         
     except Exception as e:
         print(f"Failed to connect to Keithley: {e}")
+        import traceback
+        traceback.print_exc()
         keithley_connected = False
         keithley_device = None
         return False
