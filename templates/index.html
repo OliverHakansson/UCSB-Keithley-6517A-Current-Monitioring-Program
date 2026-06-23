@@ -186,12 +186,12 @@
             const li = document.createElement('li');
             li.innerHTML = `
                 <span>${timing} s</span>
-                <input type="hidden" name="timings[]" value="${timing}">
+                <input type="hidden" name="durations[]" value="${timing}">
                 <button type="button" class="remove-btn" onclick="removeTiming(${index})">Remove</button>
             `;
             list.appendChild(li);
         });
-    }
+}
 
     function exportChartImage() {
         const canvas = document.getElementById('previewChart');
@@ -374,7 +374,15 @@
                 checkKeithleyConnection();
             }
         });
-    }
+        fetch('/read_current')
+            .then(response => response.json())
+            .then(data => {
+                console.log('Current:', data.current);
+            })
+            .catch(err => {
+                console.error(err);
+            });
+            }
 </script>
 
 </body>

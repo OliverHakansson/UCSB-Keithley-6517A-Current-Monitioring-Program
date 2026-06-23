@@ -1,0 +1,10 @@
+Experiment Data Log
+===================
+Experiment: test - voltages collected?
+Experimenter: oliver
+Date: 2026-06-23 09:33:08
+
+Data Points:
+Time (s)	Conductivity (µS/cm)
+
+
