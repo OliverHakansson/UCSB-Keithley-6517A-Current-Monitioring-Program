@@ -196,7 +196,7 @@
     function exportChartImage() {
         const canvas = document.getElementById('previewChart');
         const image = canvas.toDataURL('image/png');
-        
+
         // Save to server
         fetch('/save-chart', {
             method: 'POST',
@@ -222,7 +222,7 @@
 
     function updateChart() {
         const ctx = document.getElementById('previewChart').getContext('2d');
-        
+
         if (chart) {
             chart.destroy();
         }
@@ -323,20 +323,25 @@
 
     // Initialize chart on page load
     window.addEventListener('load', function() {
-        updateChart();
-        checkKeithleyConnection();
+
+    updateChart();
+    checkKeithleyConnection();
+
+    // Update graph every second
+    setInterval(updateRealData, 1000);
+
     });
 
     document.getElementById('experimentForm').addEventListener('submit', function(e) {
         e.preventDefault();
-        
+
         // Save chart image first if email is checked
         const emailCheckBox = document.getElementById('emailCheckBox').checked;
-        
+
         if (emailCheckBox) {
             const canvas = document.getElementById('previewChart');
             const image = canvas.toDataURL('image/png');
-            
+
             // Save chart to server
             fetch('/save-chart', {
                 method: 'POST',
@@ -361,7 +366,36 @@
         }
     });
 
+    function resetGraph() {
+
+    realData = [];
+
+    updateChart();
+
+}
+
+    function updateRealData() {
+    fetch('/get-conductivity-data')
+        .then(response => response.json())
+        .then(data => {
+
+            if (data.success) {
+
+                realData = data.data_points;
+
+                updateChart();
+
+            }
+
+        })
+        .catch(error => {
+            console.error("Error getting conductivity data:", error);
+        });
+}
+
     function submitForm() {
+        
+        resetGraph();
         fetch('/', {
             method: 'POST',
             body: new FormData(document.getElementById('experimentForm'))

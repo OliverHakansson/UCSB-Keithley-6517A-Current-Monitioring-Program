@@ -6,16 +6,27 @@ import base64
 import pyvisa
 import threading
 import time
+# import read
+
+#website for use http://127.0.0.1:9084/
+
+#commands to run
+# - cd "downloads/UCSB-Keithley-6517A-Current-Monitioring-Program-main"
+# - run the following command to start the program
+# - python main.py
+# - to exit type ctrl-c
 
 #TODO
-#FIX saving of the data to a txt or csv
 #ADD full experiment loops
-
+#ADD detection for other keithley GPIB numbers
+#FIX emailing
+#FIX saving of graphs
+#FIX sweeping
 app = Flask(__name__)
 currentVoltages = []
 currentTimings = []
-currentRepetitions = 1
 sweeps = False
+experimentName = ""
 
 # Store experiment data in memory (in production, use a database)
 experiment_data = {
@@ -30,6 +41,7 @@ def home():
     global currentVoltages
     global currentTimings
     global sweeps
+    global experimentName
 
     if request.method == "POST":
         name = request.form.get("name")
@@ -59,7 +71,10 @@ def home():
         currentVoltages = voltages
         currentTimings = durations
         sweeps = voltage_sweep
-        currentRepetitions = int(experiment_loops)
+        experimentName = experiment_name
+        experimentName = experimentName.replace(" ","")
+        experiment_data["start_time"] = time.time()
+        experiment_data["data_points"] = []
 
         if email_data:
             html_report = f"""
@@ -169,8 +184,8 @@ def connect_to_keithley():
             return False
 
         # Connect directly to GPIB1::27::INSTR
-        keithley_address = "GPIB1::27::INSTR"
-
+        keithley_address = 'GPIB1::27::INSTR'
+        # split resource?
         if keithley_address not in resources:
             print(f"Keithley not found at {keithley_address}")
             print(f"Available: {resources}")
@@ -225,7 +240,6 @@ def read_keithley_current():
     global keithley_device
     global currentVoltages
     global currentTimings
-    global currentRepetitions
 
     if not keithley_connected or keithley_connected is None:
         return None
@@ -236,13 +250,23 @@ def read_keithley_current():
             keithley_device.write("OUTP ON")
             experimentStartTime = time.time()
             length = len(currentTimings) if (len(currentTimings) < len(currentVoltages)) else len(currentVoltages)
-            for i in range(currentRepetitions):
-                for i in range(length):
-                    cycleStartTime = time.time()
-                    while (cycleStartTime + float(currentTimings[i])) > time.time():
-                        keithley_device.write(f"SOUR:VOLT {float(currentVoltages[i])}")
-                        currentVal = keithley_device.query("MEAS:CURR?")
-                        writeToTXT(time.time() - experimentStartTime, currentVal.split(",")[0])
+            for i in range(length):
+                cycleStartTime = time.time()
+                while (cycleStartTime + float(currentTimings[i])) > time.time():
+                    keithley_device.write(f"SOUR:VOLT {float(currentVoltages[i])}")
+                    currentVal = keithley_device.query("MEAS:CURR?")
+                    currentValue = float(currentVal.split(",")[0].split("N")[0])
+
+                    elapsed_time = time.time() - experimentStartTime
+
+                    conductivityValue = currentValue
+
+                    experiment_data["data_points"].append({
+                        "time": elapsed_time,
+                        "conductivity": conductivityValue
+                    })
+                    writeToTXT(elapsed_time, conductivityValue)
+
             keithley_device.write("SOUR:VOLT 0")
             keithley_device.write("OUTP OFF")
             return float(current)
@@ -251,8 +275,9 @@ def read_keithley_current():
             return None
 
 def writeToTXT(time, current):
-    with open("experiment_data.txt", "a") as data:
-        data.write(f"{time} , {current}")
+    global experimentName
+    with open(f"{experimentName}.csv", "a") as data:
+        data.write(f"{time:.3f} , {current}\n")
 
 def reconnect_loop():
     """Continuously try to reconnect to Keithley every 5 seconds"""
@@ -301,6 +326,13 @@ def disconnect_keithley():
         except Exception as e:
             print(f"Error disconnecting Keithley: {e}")
 
+@app.route("/reset-graph", methods=["POST"])
+def reset_graph():
+    experiment_data["data_points"] = []
+
+    return jsonify({
+        "success": True
+    })
 
 if __name__ == "__main__":
     connect_to_keithley()
