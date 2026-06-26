@@ -17,16 +17,18 @@ import time
 # - to exit type ctrl-c
 
 #TODO
-#ADD full experiment loops
+#ADD full experiment loops - untested
 #ADD detection for other keithley GPIB numbers
 #FIX emailing
 #FIX saving of graphs
 #FIX sweeping
+#FIX the first data point isn't at t=0 - untested
 app = Flask(__name__)
 currentVoltages = []
 currentTimings = []
 sweeps = False
 experimentName = ""
+experimentLoops = 0
 
 # Store experiment data in memory (in production, use a database)
 experiment_data = {
@@ -42,6 +44,7 @@ def home():
     global currentTimings
     global sweeps
     global experimentName
+    global experimentLoops
 
     if request.method == "POST":
         name = request.form.get("name")
@@ -72,6 +75,7 @@ def home():
         currentTimings = durations
         sweeps = voltage_sweep
         experimentName = experiment_name
+        experimentLoops = experiment_loops
         experimentName = experimentName.replace(" ","")
         experiment_data["start_time"] = time.time()
         experiment_data["data_points"] = []
@@ -184,13 +188,18 @@ def connect_to_keithley():
             return False
 
         # Connect directly to GPIB1::27::INSTR
-        keithley_address = 'GPIB1::27::INSTR'
+        keithley_address = 'GPIB1'
         # split resource?
-        if keithley_address not in resources:
-            print(f"Keithley not found at {keithley_address}")
-            print(f"Available: {resources}")
-            keithley_connected = False
-            return False
+        for i in resources:
+            if keithley_address not in i:
+                print(f"Keithley not found at {keithley_address}")
+                print(f"Available: {resources}")
+                keithley_connected = False
+                return False
+            else:
+                keithley_address = i
+                print(keithley_address)
+
 
         # Connect to the device
         keithley_device = rm.open_resource(keithley_address)
@@ -240,32 +249,35 @@ def read_keithley_current():
     global keithley_device
     global currentVoltages
     global currentTimings
+    global experimentLoops
+    global sweeps
 
     if not keithley_connected or keithley_connected is None:
         return None
     if currentVoltages is not None and currentTimings is not None:
         try:
-            current = 1
+            current = -1
             keithley_device.write("SOUR:VOLT 0")
             keithley_device.write("OUTP ON")
             experimentStartTime = time.time()
-            length = len(currentTimings) if (len(currentTimings) < len(currentVoltages)) else len(currentVoltages)
-            for i in range(length):
-                cycleStartTime = time.time()
-                while (cycleStartTime + float(currentTimings[i])) > time.time():
-                    keithley_device.write(f"SOUR:VOLT {float(currentVoltages[i])}")
-                    currentVal = keithley_device.query("MEAS:CURR?")
-                    currentValue = float(currentVal.split(",")[0].split("N")[0])
-
-                    elapsed_time = time.time() - experimentStartTime
-
-                    conductivityValue = currentValue
-
-                    experiment_data["data_points"].append({
-                        "time": elapsed_time,
-                        "conductivity": conductivityValue
-                    })
-                    writeToTXT(elapsed_time, conductivityValue)
+            firstDataPoint = False
+            for h in range(experimentLoops):
+                length = len(currentTimings) if (len(currentTimings) < len(currentVoltages)) else len(currentVoltages)
+                for i in range(length):
+                    cycleStartTime = time.time()
+                    while (cycleStartTime + float(currentTimings[i])) > time.time():
+                        keithley_device.write(f"SOUR:VOLT {float(currentVoltages[i])}")
+                        currentVal = keithley_device.query("MEAS:CURR?")
+                        if not firstDataPoint:
+                            firstDataPoint = True
+                            experimentStartTime = time.time()
+                        elapsed_time = time.time() - experimentStartTime
+                        currentValue = float(currentVal.split(",")[0].split("N")[0])
+                        experiment_data["data_points"].append({
+                            "time": elapsed_time,
+                            "conductivity": currentValue
+                        })
+                        writeToTXT(elapsed_time, currentValue)
 
             keithley_device.write("SOUR:VOLT 0")
             keithley_device.write("OUTP OFF")
